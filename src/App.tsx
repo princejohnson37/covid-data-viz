@@ -1,66 +1,75 @@
-import React, { useState } from 'react';
-import './App.css';
-import { MapContainer, Marker, Popup, TileLayer, useMap } from 'react-leaflet';
-import Plot from 'react-plotly.js';
-import data from './data.json';
+import React, { useEffect, useState } from 'react';
 import MapComponent from './components/MapComponent';
-
-interface CovidData {
-  Id: number;
-  Location: string;
-  Total_Cases: string;
-  New_Cases_Per_Day: string;
-  Cases_Per_1_Million_People: string;
-  Deaths: string;
-  Latitude: number;
-  Longitude: number;
-}
+import { useDispatch, useSelector } from 'react-redux';
+import { AppDispatch, RootState } from './redux/store';
+import { fetchData } from './redux/slice/slice';
+import { CovidDataItem } from './types/types';
+import CustomChart from './components/CustomChart';
+import './App.css';
 
 function App() {
-  const [activeCovid, setActiveCovid] = useState<CovidData | undefined>(undefined);
+
+  const dispatch = useDispatch<AppDispatch>();
+  const { covidData, status, error } = useSelector((state: RootState) => state.data);
+  const [activeCovid, setActiveCovid] = useState<CovidDataItem | undefined>(covidData[0] ?? undefined);
+
+  useEffect(() => {
+    if (status === 'idle') {
+      dispatch(fetchData())
+    }
+    if (status === 'succeeded') {
+      setActiveCovid(covidData[0])
+    }
+  }, [status, dispatch]);
+
   const x_labels = [
     "Total Cases",
     "Active Cases",
     "Recovered",
     "Deaths",
   ]
-  const y_values_string = [
-    activeCovid?.Total_Cases,
-    activeCovid?.New_Cases_Per_Day,
-    activeCovid?.Cases_Per_1_Million_People,
+  const y_values = [
+    activeCovid?.Active,
+    activeCovid?.Confirmed,
+    activeCovid?.Recovered,
     activeCovid?.Deaths
-  ]
+  ].map((value: any) => (
+    parseFloat(value || 0)
+  ))
 
-  const y_values = y_values_string.map((value: String | undefined) => {
-    if (!isNaN(parseFloat(value))) {
 
-    }
 
-    return (
-      <div className="App">
-        <select name='state' id='state'>
-          {data.map((value, index) => {
-            console.log(value.Location)
-            return <option key={index} value={value.Location} onClick={() => setActiveCovid(value)}>{value.Location}</option>
-          })}
-
-        </select>
-        <Plot
-          data={[
-            {
-              x: x_labels,
-              y: y_values,
-              type: 'scatter',
-              mode: 'lines+markers',
-              marker: { color: 'red' },
-            },
-            { type: 'bar', x: [1, 2, 3], y: [2, 5, 3] },
-          ]}
-          layout={{ width: 320, height: 240, title: 'A Fancy Plot' }}
-        />
-        <MapComponent data={data} />
-      </div>
-    );
+  const handleOnSelect = (event: React.ChangeEvent<HTMLSelectElement>) => {
+    const state = event.target.value
+    const selectedCovid = covidData.find((covid) => covid.State === state)
+    setActiveCovid(selectedCovid)
   }
+
+  return (
+    <>
+    <nav className="navbar">Covid Report</nav>
+      {status === 'loading' && <div>Loading...</div>}
+      {status === 'failed' && <div>Error: {error}</div>}
+      {status === 'succeeded' &&
+        (<div className="App">
+          <div className='select-state-div'>
+            Select State:
+            <select className='select-state' name='state' onChange={handleOnSelect}>
+              {covidData?.map((state) => (
+                <option value={state.State} key={state.State} >
+                  {state.State}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className='charts'>
+            <CustomChart xLabels={x_labels} yValues={y_values} />
+            <CustomChart xLabels={x_labels} yValues={y_values} charType='pie' />
+          </div>
+          <MapComponent data={covidData} selectedState={activeCovid?.State} />
+        </div>)}
+    </>
+  );
+}
 
 export default App;
