@@ -29,8 +29,8 @@ function App() {
     "Deaths",
   ]
   const y_values = [
-    activeCovid?.Active,
     activeCovid?.Confirmed,
+    activeCovid?.Active,
     activeCovid?.Recovered,
     activeCovid?.Deaths
   ].map((value: any) => (
